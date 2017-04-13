@@ -1,0 +1,206 @@
+<apex:page StandardController="Case" extensions="CaseGeocodeController" showHeader="false" sidebar="false" standardStyleSheets="false" cache="false">
+    <html>
+        <head>
+            <title>Address Locator</title>
+            <link href='//serverapi.arcgisonline.com/jsapi/arcgis/2.0/js/dojo/dijit/themes/tundra/tundra.css' rel='stylesheet' type='text/css' />
+            <script type="text/javascript" src="//serverapi.arcgisonline.com/jsapi/arcgis?v=2.4"></script>
+            <script type="text/javascript" src="//code.jquery.com/jquery.min.js"></script>
+            <apex:includeScript value="/support/console/26.0/integration.js"/>
+
+            <script type="text/javascript">
+                /*
+                This is needed for IE                
+                */
+                if ( !Array.prototype.forEach ) {
+                    Array.prototype.forEach = function(fn, scope) {
+                        for(var i = 0, len = this.length; i < len; ++i) {
+                    fn.call(scope, this[i], i, this);
+                    }
+                  }
+                }
+                
+                /*
+                this is the beginning of the esri integration
+                */
+                
+                dojo.require("esri.map");
+                var map, initExtent;
+                
+                function Init() {
+                
+                    dojo.style(dojo.byId("map"), { width: dojo.contentBox("map").w + "px", height: (esri.documentBox.h - dojo.contentBox("navTable").h -15) + "px" });
+                    initExtent = new esri.geometry.Extent({"xmin":-97.121784,"ymin":32.603064,"xmax":-96.582561,"ymax":33.014061,"spatialReference":{"wkid":4326}});  // for Dallas
+                    //initExtent = new esri.geometry.Extent({"xmin":-10825360.25,"ymin":3832472.32,"xmax":-10727979.47,"ymax":3903100.14,"spatialReference":{"wkid":4326}});  // for Dallas
+                    //initExtent = new esri.geometry.Extent({"xmin":-8371165.3987,"ymin":4856635.811,"xmax":-8353035.7458,"ymax":4876006.8845,"spatialReference":{"wkid":102100}});
+                    map = new esri.Map("map",{ extent: initExtent});
+                    
+                    var layer = '{!esriConfig.Layer__c}';
+                    layer = 'https://server.arcgisonline.com/ArcGIS/rest/services/ESRI_StreetMap_World_2D/MapServer';
+                    //alert(layer);
+
+                    var layerList = layer.split(';');
+                    
+                    layerList.forEach(function(each, index, array) {
+                        console.log('adding layer for ' + each);
+                        map.addLayer(
+                            new esri.layers.ArcGISTiledMapServiceLayer(each)
+                        );
+                    });
+                    
+                    var resizeTimer;
+                    dojo.connect(map, 'onLoad', function(theMap) {
+                    
+                    //alert("{!Case.Street__c}");
+                    console.log('>> Address: {!Case.Street__c}');
+                        
+                        var caseX;
+                        var caseY;
+
+                        CaseGeocodeController.AddressGeocode("{!Case.id}", map.spatialReference, function(result,event){
+                            if (event.status){
+                                caseX = result.location.x;
+                                caseY = result.location.y;
+                                
+                                //alert('x,y= ' + x + ', ' + y);
+                                console.log('>> x,y= ' + caseX + ', ' + caseY);
+                                        
+                                var symbol = new esri.symbol.SimpleMarkerSymbol();
+                                symbol.setStyle(esri.symbol.SimpleMarkerSymbol.STYLE_SQUARE);
+                                symbol.setColor(new dojo.Color("#B34066"));
+                                var point = new esri.geometry.Point(caseX,caseY, map.spatialReference); 
+                                map.graphics.add(new esri.Graphic(point,symbol));
+                                var displayText = "{!Case.Street__c}";
+                                var font = new esri.symbol.Font(
+                                            "12pt",
+                                            esri.symbol.Font.STYLE_NORMAL, 
+                                            esri.symbol.Font.VARIANT_NORMAL,
+                                            esri.symbol.Font.WEIGHT_BOLD,
+                                            "Helvetica"             
+                                        );
+                                var textSymbol = new esri.symbol.TextSymbol(displayText,font,new dojo.Color("#666633"));
+                                textSymbol.setOffset(0,8);
+                                map.graphics.add(new esri.Graphic(point, textSymbol));
+                                
+                                if(point !== undefined){
+                                    map.centerAndZoom(point,{!esriConfig.Zoom_level__c});
+                                    map.infoWindow.resize(200, 140);
+                                }
+                            
+                            }
+                        });
+                                        
+   
+                        CaseGeocodeController.GetRelatedCases(12, "{!Case.id}" , "{!Case.type}", function(result,event){
+                            if (event.status){
+                                
+                                console.log(result);
+                                var points = new esri.geometry.Multipoint(map.spatialReference);
+                                
+                                console.log('>> Number of related cases: ' + result.length);
+                                map.infoWindow.resize(250, 180);
+                                 
+                                for (var i=0 ; i < result.length ; i++) {
+                                    //var x = result[i].Address_X__c;
+                                    //var y = result[i].Address_Y__c;
+                                    var x = result[i].Location__Longitude__s;
+                                    var y = result[i].Location__Latitude__s;
+                                    var symbol = new esri.symbol.SimpleMarkerSymbol();
+                                    symbol.setColor(new dojo.Color("#538F50"));
+                                    var point = new esri.geometry.Point(x,y, map.spatialReference); 
+                                    
+                                    var attributes = { 
+                                        description: result[i].Description, 
+                                        caseNumber: result[i].CaseNumber,
+                                        caseSubject: result[i].Subject,
+                                        createdBy: result[i].CreatedBy.Name,
+                                        createdDay: result[i].CreatedDateString__c,
+                                        street: result[i].Street__c,
+                                        status: result[i].Status,
+                                        id: result[i].Id,
+                                        confirmText:"You will mark the the current case {!Case.casenumber} as a duplicate, and make it a related case to " + result[i].CaseNumber
+                                    };
+                                    
+                                    var infoTemplate = new esri.InfoTemplate("${caseSubject}", 
+                                                                            "Case Number: ${caseNumber} <br />\
+                                                                            Date: ${createdDay} <br />\
+                                                                            Status: ${status} <br />\
+                                                                            Description: ${description} <br /><hr/>\
+                                                                            <table><tr><td nowrap><a href='#' onClick='OpenPrimaryTab(\"${id}\",\"${caseNumber}\")'>Go to case</a></td>\
+                                                                            <td nowrap><a class='btn' onclick='if(!confirm(\"${confirmText}\")){return false;}else{closeDupliacte(\"${id}\",\"{!Case.id}\")}'>Mark as parent</a></td></tr></table>"
+                                                                            );
+                                
+                                    var graphic = new esri.Graphic(point, symbol, attributes, infoTemplate);
+                                    map.graphics.add(graphic);
+                                    //points.addPoint(point);
+                                
+                                }
+                            }
+                        });
+
+
+                        dojo.connect(dijit.byId('map'), 'resize', function() {
+                            clearTimeout(resizeTimer);
+                            resizeTimer = setTimeout(function() {
+                                map.resize();
+                                map.reposition();
+                            }, 10);
+                        });
+                    });
+
+                   //dojo.connect(map, "onExtentChange", showExtent);
+                }
+
+                function showExtent(extent) {
+        var s = "";
+        s = "XMin: "+ extent.xmin.toFixed(2) + " "
+           +"YMin: " + extent.ymin.toFixed(2) + " "
+           +"XMax: " + extent.xmax.toFixed(2) + " "
+           +"YMax: " + extent.ymax.toFixed(2)  + " "
+           +"Spatial: " + extent.spatialReference.wkid;
+        dojo.byId("info").innerHTML = s;
+      }
+                
+                dojo.addOnLoad(Init);
+                
+                function closeDupliacte(parentId, childId){
+                    CaseGeocodeController.RelateCaseAndClose(parentId, childId ,function(result,event){
+//                        alert(result);
+                    });
+                }
+                
+                function OpenPrimaryTab(theId,theNumber) {
+                        //sforce.console.openPrimaryTab(null, '/' + theId + '/e?isdtp=vw', true, theNumber);  
+                         //window.parent.navigateToUrl('/' + theId +'?isdtp=vw');  
+                         if (sforce.console.isInConsole()) {
+                            sforce.console.openPrimaryTab(null, '/' + theId, true, theNumber);
+                        }
+                        else {
+                         window.parent.navigateToUrl('/' + theId); 
+                     }
+                }
+ 
+                
+            </script>
+            <style>
+            
+            body {overflow: hidden; }
+            
+            .btn {
+                background-color: #92968D;
+                border-radius: 2px 2px 2px 2px;
+                cursor: pointer;
+                float: right;
+                margin-left: 20px;
+                padding-bottom: 3px;
+                padding-left: 4px;
+                padding-right: 4px;
+            }
+            </style>
+        </head>
+        <body class="tundra">
+            <table id="navTable" width="100%" style="display:none"> </table>
+            <!-- <div id="info" style="padding:5px; margin:5px; background-color:#eee;"></div> -->
+            <div id="map" style="margin:auto;width:97%;"></div>
+        </body>
+    </html>
+</apex:page>

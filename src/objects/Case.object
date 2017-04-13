@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fields>
+        <fullName>Address_Geocode__c</fullName>
+        <displayLocationInDecimal>true</displayLocationInDecimal>
+        <externalId>false</externalId>
+        <label>Address Geocode</label>
+        <required>false</required>
+        <scale>6</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Location</type>
+    </fields>
+    <fields>
+        <fullName>Address_X__c</fullName>
+        <externalId>false</externalId>
+        <label>Address_X</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>6</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Number</type>
+        <unique>false</unique>
+    </fields>
+    <fields>
+        <fullName>Address_Y__c</fullName>
+        <externalId>false</externalId>
+        <label>Address_Y</label>
+        <precision>18</precision>
+        <required>false</required>
+        <scale>6</scale>
+        <trackFeedHistory>false</trackFeedHistory>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Number</type>
+        <unique>false</unique>
+    </fields>
+    <fields>
+        <fullName>ClosedDateString__c</fullName>
+        <description>String-ized date for Javascript clients</description>
+        <externalId>false</externalId>
+        <formula>TEXT(MONTH(DATEVALUE(CreatedDate))) + &quot;/&quot; +
+TEXT(DAY(DATEVALUE(CreatedDate))) + &quot;/&quot; +
+RIGHT(TEXT(YEAR(DATEVALUE(CreatedDate))),2)</formula>
+        <label>Closed Date String</label>
+        <required>false</required>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+    <fields>
+        <fullName>CreatedDateString__c</fullName>
+        <description>String-ized version of created date so Javascript clients may display it.</description>
+        <externalId>false</externalId>
+        <formula>TEXT(MONTH(DATEVALUE(CreatedDate))) + &quot;/&quot; +
+TEXT(DAY(DATEVALUE(CreatedDate))) + &quot;/&quot; +
+RIGHT(TEXT(YEAR(DATEVALUE(CreatedDate))),2)</formula>
+        <label>Created Date String</label>
+        <required>false</required>
+        <trackHistory>false</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+    <fields>
+        <fullName>Street__c</fullName>
+        <externalId>false</externalId>
+        <label>Location</label>
+        <length>255</length>
+        <required>false</required>
+        <trackFeedHistory>true</trackFeedHistory>
+        <trackHistory>true</trackHistory>
+        <trackTrending>false</trackTrending>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+</CustomObject>

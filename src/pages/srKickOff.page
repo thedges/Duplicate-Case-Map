@@ -1,0 +1,259 @@
+<apex:page StandardController="Case" extensions="CaseGeocodeController" showHeader="false" sidebar="false"  cache="false">
+    <html>
+        <head>
+            <title>Address Locator</title>
+            <link href='//serverapi.arcgisonline.com/jsapi/arcgis/3.3/js/dojo/dijit/themes/tundra/tundra.css' rel='stylesheet' type='text/css' />
+            <link rel="stylesheet" href="//serverapi.arcgisonline.com/jsapi/arcgis/3.3/js/esri/css/esri.css" />
+            <script type="text/javascript" src="//serverapi.arcgisonline.com/jsapi/arcgis/3.3"></script>
+            <apex:includeScript value="{!URLFOR($Resource.publicAssets,'scripts/jquery.min.js')}" />
+            <apex:includeScript value="/support/console/26.0/integration.js"/>
+
+            <script type="text/javascript">
+                /*
+                This is needed for IE                
+                */
+                if ( !Array.prototype.forEach ) {
+                    Array.prototype.forEach = function(fn, scope) {
+                        for(var i = 0, len = this.length; i < len; ++i) {
+                    fn.call(scope, this[i], i, this);
+                    }
+                  }
+                }
+                 
+                /*
+                this is the beginning of the esri integration
+                */
+                
+                dojo.require("esri.map");
+                var map, initExtent;
+                
+                function Init() {
+                
+                   
+                    initExtent = new esri.geometry.Extent({"xmin":-8371165.3987,"ymin":4856635.811,"xmax":-8353035.7458,"ymax":4876006.8845,"spatialReference":{"wkid":102100}});
+                    map = new esri.Map("map",{ extent: initExtent});
+                    
+                    var layer = '{!esriConfig.Layer__c}';
+                    //alert(layer);
+
+                    var layerList = layer.split(';');
+                    
+                    layerList.forEach(function(each, index, array) {
+                        console.log('adding layer for ' + each);
+                        map.addLayer(
+                            new esri.layers.ArcGISDynamicMapServiceLayer(each)
+                        );
+                    });
+                    
+                    var resizeTimer;
+                    dojo.connect(map, 'onLoad', function(theMap) {
+                        
+                                    
+                        
+                        dojo.connect(dijit.byId('map'), 'resize', function() {
+                            clearTimeout(resizeTimer);
+                            resizeTimer = setTimeout(function() {
+                                map.resize();
+                                map.reposition();
+                            }, 10);
+                        });
+                    });
+                }
+                dojo.addOnLoad(Init);
+
+            function OpenPrimaryTab(theId) {
+                    sforce.console.openPrimaryTab(null, theId + '/e?isdtp=vw', true, 'Console?');
+                }              
+              
+             function getAddressCandidates(location){
+                            startStatus();
+                            location = location + ',' + '{!esriConfig.City__c}' + ',' + '{!esriConfig.State__c}';
+                            CaseGeocodeController.AddressLocator(map.spatialReference,location, function(result,event){
+                                if (event.status){
+                                 
+                                   console.log(result);
+                                   var candidatesSize = result.candidates.length;
+                                   console.log(candidatesSize);
+                                   if (candidatesSize > 0){
+                                            $('.no-result').html('');
+                                            $('#candidatesList').css('display', 'block');
+                                        } else {
+                                            $('#candidatesList').css('display', 'none');
+                                            $('.no-result').html('No candidates were found! Please try a different address');
+                                        }
+                                  $('#candidatesList').find('option').remove();
+                                  $('#candidatesList').append(
+                                            $("<option></option>").text("--Select an Address --")
+                                        );
+                                  result.candidates.forEach(function(each, index, array) {
+                                    $('#candidatesList').append(
+                                            $("<option value='"+index+"'></option>").text(each.address.replace(/amp;/g,''))
+                                    );
+                                        
+                                        
+                                  });
+                                  
+                                  $('#candidatesList').change(function(){
+                                    console.log(result.candidates[this.value]);
+                                    $('.location').val(result.candidates[this.value].address.replace(/amp;/g,''));
+                                    $('.x-value').val(result.candidates[this.value].location.x);
+                                    $('.y-value').val(result.candidates[this.value].location.y);
+                                  });
+                                  /*
+                                   $('#candidatesList').attr('enabled', 'true');
+                                   $.each(result, function() {
+                                        console.log(result.candidates.address);
+                                        $('#candidatesList').append(
+                                            $("<option></option>").text(this.address).val(this.candidatesList)
+                                        );
+                                    });
+                                    $('#candidatesList').css('display', 'block');
+                                   /*
+                                    var x = result.location.x;
+                                    var y = result.location.y;
+                                    
+                                    var symbol = new esri.symbol.SimpleMarkerSymbol();
+                                    symbol.setStyle(esri.symbol.SimpleMarkerSymbol.STYLE_SQUARE);
+                                    symbol.setColor(new dojo.Color("#B34066"));
+                                    var point = new esri.geometry.Point(x,y, map.spatialReference); 
+                                    map.graphics.add(new esri.Graphic(point,symbol));
+                                    var displayText = "{!Case.Street__c}";
+                                    var font = new esri.symbol.Font(
+                                                "12pt",
+                                                esri.symbol.Font.STYLE_NORMAL, 
+                                                esri.symbol.Font.VARIANT_NORMAL,
+                                                esri.symbol.Font.WEIGHT_BOLD,
+                                                "Helvetica"             
+                                            );
+                                    var textSymbol = new esri.symbol.TextSymbol(displayText,font,new dojo.Color("#666633"));
+                                    textSymbol.setOffset(0,8);
+                                    map.graphics.add(new esri.Graphic(point, textSymbol));
+                                    
+                                    if(point !== undefined){
+                                        map.centerAndZoom(point,0.015625);
+                                        map.infoWindow.resize(200, 140);
+                                    }
+                                    */
+                                    stopStatus();
+                                }
+                            });
+                        }   
+                        
+                        function startStatus(){
+                            $('.action-status-wrapper').css('display','inline-block');
+                        }
+                        
+                        function startStatus2(){
+                            $('.action-status-wrapper2').css('display','inline-block');
+                        }
+                        function stopStatus(){
+                            $('.action-status-wrapper').css('display','none');
+                        }          
+                        
+            </script>
+            <style>
+            
+            body {overflow: hidden; }
+            
+            .btn {
+                background-color: #92968D;
+                border-radius: 2px 2px 2px 2px;
+                cursor: pointer;
+                float: right;
+                margin-left: 20px;
+                padding-bottom: 3px;
+                padding-left: 4px;
+                padding-right: 4px;
+            }
+            
+            #map {
+            width: 97%;
+            margin-top:20px;
+            margin-left:auto;
+            margin-right:auto;
+            border:1px solid #000;
+            display:none;
+            }
+            
+            .button {
+                background:  #4F4F4F;
+                border-color: #8F8F8F #4F4F4F #1A1A1A;
+                border-radius: 3px 3px 3px 3px;
+                border-style: solid;
+                border-width: 2px;
+                color: #AAA7A7 !important;
+                font-size: 11px;
+                height: 16px;
+                line-height: 16px;
+                text-align: center;
+                padding-right:5px;
+                padding-left:5px;
+                cursor: pointer;
+            }
+            
+            .button:hover {
+                color:#c9c9c9;
+                text-decoration:none;
+            }
+            
+            .subject, .location, .x-value, .y-value, {
+                width:280px;
+            }
+            .no-result {
+                color:red;
+            }
+            </style>
+        </head>
+        <body class="tundra">
+            <div style="margin-top:20px"></div>
+                <apex:pageBlock >
+                    Location: <input type="text" style="width:280px;" id="location" />
+                    <a class="button" onclick="getAddressCandidates(document.getElementById('location').value)"> Find Candidates </a>
+                    <div class="action-status-wrapper" style="display:none ;margin-left:10px"> 
+                        <div class="action-status-container"> 
+                            <img class="waiting-image" src="/img/loading.gif" />
+                            <span class="status-description">Processing...</span>
+                        </div>
+                    </div>
+                    <select id="candidatesList" style="display:none; margin-top:10px;margin-left:50px;"></select> 
+                    
+                    <br/>
+                    <span class="no-result"></span>
+                    
+                    <apex:form >
+                        <apex:pageBlockSection columns="1" >
+                            <apex:outputText value="" />
+                            <apex:inputField id="subject" styleclass="subject"  value="{!Case.subject}"/> 
+                            <apex:inputField id="location" styleclass="location" value="{!Case.Street__c}"/> 
+                            
+                            <apex:pageblockSectionItem >
+                                <apex:outputLabel for="typeOfIncident" value="Type" />
+                                <apex:inputField id="typeOfIncident" styleclass="typeOfIncident" value="{!Case.Type}"/>
+                            </apex:pageblockSectionItem>
+
+                            <apex:pageBlockSectionItem >
+                                <apex:outputLabel for="Sub-type" value="subType" />
+                                <apex:inputField id="subtype" styleclass="subtype" value="{!Case.Sub_Type__c}"/>
+                            </apex:pageBlockSectionItem>
+
+                            <apex:outputPanel style="display:none">                         
+                                <apex:inputField id="x-value" styleclass="x-value" value="{!Case.Address_X__c}"/> 
+                                <apex:inputField id="y-value" styleclass="y-value" value="{!Case.Address_Y__c}"/>
+                            </apex:outputPanel>
+                           <apex:pageBlockSectionItem >
+                            <apex:commandButton action="{!createCase}"  value="Open Case" onclick="startStatus2()" oncomplete="OpenPrimaryTab('{!case.id}')" style="float:left;"/>
+                            <div class="action-status-wrapper2" style="display:none;margin-left:10px"> 
+                                <div class="action-status-container"> 
+                                    <img class="waiting-image" src="/img/loading.gif" />
+                                    <span class="status-description">Processing...</span>
+                                </div>
+                            </div>
+                            </apex:pageBlockSectionItem>
+                        </apex:pageBlockSection>
+                    </apex:form>
+                </apex:pageBlock>
+            
+            <div id="map"></div>
+        </body>
+    </html>
+</apex:page>
